@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>KDS Trainer</title>
+  <style>
+    :root {
+      --bg: #101214;
+      --panel: #191c20;
+      --panel-2: #22262b;
+      --line: #343a40;
+      --text: #f5f7f9;
+      --muted: #9ca3ab;
+      --accent: #f2b84b;
+      --danger: #db5a5a;
+      --success: #61b879;
+      --blue: #5f9ee6;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+      overscroll-behavior: none;
+    }
+
+    body {
+      padding-bottom: 110px;
+    }
+
+    button, input, textarea, select {
+      font: inherit;
+    }
+
+    button {
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: rgba(16, 18, 20, 0.98);
+      border-bottom: 1px solid var(--line);
+      padding: 10px;
+      backdrop-filter: blur(8px);
+    }
+
+    .top-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .title {
+      font-size: 18px;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+    }
+
+    .status {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 3px;
+    }
+
+    .mode-buttons {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      margin-top: 9px;
+    }
+
+    .mode-btn {
+      padding: 10px 4px;
+      color: var(--text);
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+    }
+
+    .mode-btn.active {
+      background: var(--accent);
+      color: #111;
+      border-color: var(--accent);
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .primary { background: var(--success); color: #07140b; padding: 10px; }
+    .secondary { background: var(--blue); color: #07111d; padding: 10px; }
+    .danger { background: var(--danger); color: white; padding: 10px; }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 5px;
+      padding: 8px 10px 0;
+    }
+
+    .metric {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 7px 4px;
+      text-align: center;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 18px;
+      line-height: 1.1;
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+
+    #orders {
+      padding: 8px 8px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .empty {
+      margin: 25px 10px;
+      padding: 30px 15px;
+      background: var(--panel);
+      border: 1px dashed var(--line);
+      border-radius: 12px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    .order {
+      display: grid;
+      grid-template-columns: 58px minmax(0, 1fr) 62px 58px;
+      gap: 5px;
+      align-items: center;
+      min-height: 52px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-left: 5px solid var(--accent);
+      border-radius: 7px;
+      padding: 5px;
+      overflow: hidden;
+    }
+
+    .order.started {
+      border-left-color: var(--success);
+      background: #172019;
+    }
+
+    .order.old {
+      animation: pulseBorder 1.1s infinite alternate;
+    }
+
+    @keyframes pulseBorder {
+      from { border-color: var(--danger); }
+      to { border-color: var(--line); }
+    }
+
+    .table {
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.1;
+    }
+
+    .table strong {
+      display: block;
+      color: var(--text);
+      font-size: 16px;
+    }
+
+    .item-name {
+      font-size: 17px;
+      font-weight: 900;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      letter-spacing: 0.02em;
+    }
+
+    .timers {
+      font-size: 10px;
+      color: var(--muted);
+      line-height: 1.25;
+      text-align: center;
+    }
+
+    .timers strong {
+      display: block;
+      font-size: 13px;
+      color: var(--text);
+    }
+
+    .row-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .row-actions button {
+      padding: 6px 2px;
+      font-size: 11px;
+    }
+
+    .start-btn { background: var(--blue); color: #07111d; }
+    .bump-btn { background: var(--success); color: #07140b; }
+
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 30;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      background: #0d0f11;
+      border-top: 1px solid var(--line);
+      padding: 8px;
+      gap: 8px;
+    }
+
+    .bottom-nav button {
+      padding: 12px;
+      color: var(--text);
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+    }
+
+    .drawer {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      background: var(--bg);
+      display: none;
+      overflow-y: auto;
+      padding-bottom: 30px;
+    }
+
+    .drawer.open { display: block; }
+
+    .drawer-head {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: var(--bg);
+      padding: 12px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .drawer-content {
+      padding: 12px;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 300px;
+      padding: 12px;
+      color: var(--text);
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      resize: vertical;
+      line-height: 1.5;
+    }
+
+    .help {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+      margin: 8px 0 14px;
+    }
+
+    .save-menu {
+      width: 100%;
+      margin-top: 10px;
+      padding: 13px;
+      background: var(--success);
+      color: #07140b;
+    }
+
+    .close-btn {
+      padding: 9px 14px;
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid var(--line);
+    }
+
+    .settings-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .setting {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 12px;
+    }
+
+    .setting label {
+      display: block;
+      font-weight: 800;
+      margin-bottom: 7px;
+    }
+
+    .setting input {
+      width: 100%;
+      padding: 10px;
+      color: var(--text);
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    @media (min-width: 700px) {
+      body {
+        max-width: 760px;
+        margin: 0 auto;
+        border-left: 1px solid var(--line);
+        border-right: 1px solid var(--line);
+      }
+
+      .bottom-nav {
+        left: 50%;
+        right: auto;
+        width: 760px;
+        transform: translateX(-50%);
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="top-row">
+      <div>
+        <div class="title">KDS TRAINER</div>
+        <div class="status" id="statusText">Select a mode and start the rush.</div>
+      </div>
+      <div id="rushClock">00:00</div>
+    </div>
+
+    <div class="mode-buttons">
+      <button class="mode-btn active" data-mode="slow">SLOW</button>
+      <button class="mode-btn" data-mode="normal">NORMAL</button>
+      <button class="mode-btn" data-mode="slammed">SLAMMED</button>
+    </div>
+
+    <div class="controls">
+      <button id="startRushBtn" class="primary">START</button>
+      <button id="addTableBtn" class="secondary">ADD TABLE</button>
+      <button id="resetBtn" class="danger">RESET</button>
+    </div>
+  </header>
+
+  <section class="metrics">
+    <div class="metric"><strong id="activeCount">0</strong><span>Active</span></div>
+    <div class="metric"><strong id="doneCount">0</strong><span>Done</span></div>
+    <div class="metric"><strong id="avgTime">0:00</strong><span>Avg</span></div>
+    <div class="metric"><strong id="tableCount">0</strong><span>Tables</span></div>
+  </section>
+
+  <main id="orders">
+    <div class="empty">No active orders. Start the rush when you are ready.</div>
+  </main>
+
+  <nav class="bottom-nav">
+    <button id="menuBtn">EDIT MENU</button>
+    <button id="settingsBtn">SETTINGS</button>
+  </nav>
+
+  <section class="drawer" id="menuDrawer">
+    <div class="drawer-head">
+      <strong>Menu Bank</strong>
+      <button class="close-btn" data-close="menuDrawer">BACK</button>
+    </div>
+    <div class="drawer-content">
+      <div class="help">
+        Enter one item per line. Short kitchen-style names work best. Your menu is saved on this device.
+      </div>
+      <textarea id="menuInput"></textarea>
+      <button class="save-menu" id="saveMenuBtn">SAVE MENU</button>
+    </div>
+  </section>
+
+  <section class="drawer" id="settingsDrawer">
+    <div class="drawer-head">
+      <strong>Trainer Settings</strong>
+      <button class="close-btn" data-close="settingsDrawer">BACK</button>
+    </div>
+    <div class="drawer-content settings-grid">
+      <div class="setting">
+        <label for="oldOrderSeconds">Flash old orders after</label>
+        <input id="oldOrderSeconds" type="number" min="30" max="1200" step="15" />
+        <div class="help">Seconds before an order starts flashing red.</div>
+      </div>
+
+      <div class="setting">
+        <label for="maxTables">Maximum table numbers</label>
+        <input id="maxTables" type="number" min="5" max="99" step="1" />
+        <div class="help">Default is 25.</div>
+      </div>
+
+      <div class="setting">
+        <label for="maxItemsPerTable">Maximum items per table</label>
+        <input id="maxItemsPerTable" type="number" min="1" max="8" step="1" />
+        <div class="help">Tables will contain between 1 and this many broil items.</div>
+      </div>
+
+      <button class="save-menu" id="saveSettingsBtn">SAVE SETTINGS</button>
+    </div>
+  </section>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const DEFAULT_MENU = [
+        "S&T PRZTL PORK & GROUPER",
+        "S&T PRZTL PORK & GROUPER",
+        "PRTZL PORK",
+        "PRTZL PORK",
+        "PRTZL PORK",
+        "PRTZL PORK",
+        "TRIO MEDALION - MED RARE",
+        "TRIO MEDALION - MED RARE",
+        "TRIO MEDALION - MED RARE",
+        "TRIO MEDALION - MEDIUM",
+        "TRIO MEDALION - WELL",
+        "BLK AND BLUE MED RARE",
+        "BLK AND BLUE MED RARE",
+        "BLK AND BLUE MEDIUM",
+        "BLUE CHEESE BURGER - MED RARE",
+        "BLUE CHEESE BURGER - WELL",
+        "BLUE CHEESE BURGER - MEDIUM",
+        "PIST CRSTD GRPR",
+        "PIST CRSTD GRPR",
+        "PIST CRSTD GRPR",
+        "PIST CRSTD GRPR",
+        "PRM CRATD MAHI",
+        "PRM CRATD MAHI",
+        "PRM CRATD MAHI",
+        "PRM CRATD MAHI",
+        "LB MEDALION - MED RARE",
+        "LB MEDALION - RARE",
+        "LB MEDALION - MEDIUM",
+        "MEDALION S&T PARM LOBSTER",
+        "CHCKN RANCH SANDWICH",
+        "CHEESE BURGER - MED RARE - CHEDDAR",
+        "CHEESE BURGER - MED RARE - AMERICAN",
+        "CHEESE BURGER - MED - CHEDDAR",
+        "CHEESE BURGER - MED - AMERICAN",
+        "CHEESE BURGER - RARE - CHEDDAR",
+        "CHEESE BURGER - RARE - AMERICAN",
+        "CHEESE BURGER - MED RARE - CHEDDAR",
+        "CHEESE BURGER - MED RARE - AMERICAN",
+        "CHEESE BURGER - MED - CHEDDAR",
+        "CHEESE BURGER - MED - AMERICAN",
+        "CHEESE BURGER - RARE - CHEDDAR",
+        "CHEESE BURGER - RARE - AMERICAN",
+        "LENARD BURGER",
+        "LENARD BURGER",
+        "LENARD BURGER",
+        "CHURRASCO - MEDIUM",
+        "CHURRASCO - MED RARE",
+        "CHURRASCO - WELL",
+        "CHURRASCO - RARE",
+        "CILANTRO RANCH CHICKEN - GF",
+        "GF CHEESE BURGER - MED RARE - CHEDDAR",
+        "GF CHEESE BURGER - MED - CHEDDAR",
+        "KIDS CHEESE BURGER",
+        "FILET - RARE",
+        "FILET - MED RARE",
+        "FILET - MEDIUM",
+        "FILET - WELL",
+        "FILET - RARE GF",
+        "GRILLED MEDALLIONS - RARE",
+        "GRILLED MEDALLIONS - MED RARE",
+        "GRILLED MEDALLIONS - MEDIUM",
+        "KID FILET MEDALLIONS - RARE",
+        "KID FILET MEDALLIONS - MED",
+        "KID FILET MEDALLIONS - WELL",
+        "LUNCH PRETZEL CRUSTED PORK CHOPS",
+        "S&T CHURRASCO GRILLED SKIRT STEAK LBST",
+        "PRIME SLIDER",
+        "SMASHED SLIDER",
+        "PRIME SLIDER",
+        "SMASHED SLIDER",
+        "PRIME SLIDER",
+        "SMASHED SLIDER",
+        "PRIME SLIDER",
+        "SMASHED SLIDER",
+        "MED S&T GROUPER OPTION - MED RARE"
+      ];
+
+      const MODES = {
+        slow: {
+          startTarget: 4,
+          minTarget: 0,
+          maxTarget: 5,
+          behavior: "waves",
+          refillDelayMin: 7000,
+          refillDelayMax: 14000,
+          waveMin: 2,
+          waveMax: 4
+        },
+        normal: {
+          startTarget: 7,
+          minTarget: 6,
+          maxTarget: 8,
+          behavior: "maintain",
+          refillDelayMin: 2500,
+          refillDelayMax: 6500,
+          burstChance: 0.24
+        },
+        slammed: {
+          startTarget: 12,
+          minTarget: 10,
+          maxTarget: 15,
+          behavior: "maintain",
+          refillDelayMin: 500,
+          refillDelayMax: 2200,
+          burstChance: 0.45
+        }
+      };
+
+      const state = {
+        mode: "slow",
+        running: false,
+        startedAt: null,
+        orders: [],
+        completed: [],
+        usedTables: new Set(),
+        nextOrderId: 1,
+        refillTimer: null,
+        tickTimer: null,
+        settings: {
+          oldOrderSeconds: 420,
+          maxTables: 25,
+          maxItemsPerTable: 4
+        },
+        menu: [...DEFAULT_MENU]
+      };
+
+      const el = {
+        orders: document.getElementById("orders"),
+        statusText: document.getElementById("statusText"),
+        rushClock: document.getElementById("rushClock"),
+        activeCount: document.getElementById("activeCount"),
+        doneCount: document.getElementById("doneCount"),
+        avgTime: document.getElementById("avgTime"),
+        tableCount: document.getElementById("tableCount"),
+        startRushBtn: document.getElementById("startRushBtn"),
+        addTableBtn: document.getElementById("addTableBtn"),
+        resetBtn: document.getElementById("resetBtn"),
+        menuBtn: document.getElementById("menuBtn"),
+        settingsBtn: document.getElementById("settingsBtn"),
+        menuDrawer: document.getElementById("menuDrawer"),
+        settingsDrawer: document.getElementById("settingsDrawer"),
+        menuInput: document.getElementById("menuInput"),
+        saveMenuBtn: document.getElementById("saveMenuBtn"),
+        saveSettingsBtn: document.getElementById("saveSettingsBtn"),
+        oldOrderSeconds: document.getElementById("oldOrderSeconds"),
+        maxTables: document.getElementById("maxTables"),
+        maxItemsPerTable: document.getElementById("maxItemsPerTable")
+      };
+
+      function loadSavedData() {
+        try {
+          const savedMenu = JSON.parse(localStorage.getItem("kdsMenu"));
+          if (Array.isArray(savedMenu) && savedMenu.length) {
+            state.menu = savedMenu;
+          }
+
+          const savedSettings = JSON.parse(localStorage.getItem("kdsSettings"));
+          if (savedSettings && typeof savedSettings === "object") {
+            state.settings = { ...state.settings, ...savedSettings };
+          }
+        } catch (error) {
+          console.warn("Could not load saved settings:", error);
+        }
+
+        el.menuInput.value = state.menu.join("\n");
+        el.oldOrderSeconds.value = state.settings.oldOrderSeconds;
+        el.maxTables.value = state.settings.maxTables;
+        el.maxItemsPerTable.value = state.settings.maxItemsPerTable;
+      }
+
+      function randomInt(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+      }
+
+      function randomFrom(array) {
+        return array[Math.floor(Math.random() * array.length)];
+      }
+
+      function formatTime(ms) {
+        const safe = Math.max(0, ms);
+        const totalSeconds = Math.floor(safe / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        return `${minutes}:${String(seconds).padStart(2, "0")}`;
+      }
+
+      function getAvailableTableNumber() {
+        const max = Math.max(1, state.settings.maxTables);
+        const candidates = [];
+
+        for (let i = 1; i <= max; i++) {
+          if (!state.usedTables.has(i)) candidates.push(i);
+        }
+
+        if (!candidates.length) {
+          state.usedTables.clear();
+          for (const order of state.orders) state.usedTables.add(order.table);
+          return getAvailableTableNumber();
+        }
+
+        const table = randomFrom(candidates);
+        state.usedTables.add(table);
+        return table;
+      }
+
+      function makeTable(itemCount = null) {
+        const table = getAvailableTableNumber();
+        const count = itemCount ?? randomInt(1, state.settings.maxItemsPerTable);
+        const now = Date.now();
+
+        for (let i = 0; i < count; i++) {
+          state.orders.push({
+            id: state.nextOrderId++,
+            table,
+            item: randomFrom(state.menu),
+            arrivedAt: now,
+            startedAt: null
+          });
+        }
+
+        render();
+      }
+
+      function addItemsUntilTarget(target, maxTablesToAdd = 20) {
+        let safety = 0;
+
+        while (state.orders.length < target && safety < maxTablesToAdd) {
+          const remaining = target - state.orders.length;
+          const count = Math.min(
+            remaining,
+            randomInt(1, state.settings.maxItemsPerTable)
+          );
+          makeTable(count);
+          safety++;
+        }
+      }
+
+      function startRush() {
+        if (state.running) {
+          pauseRush();
+          return;
+        }
+
+        state.running = true;
+        state.startedAt = state.startedAt || Date.now();
+        el.startRushBtn.textContent = "PAUSE";
+        el.statusText.textContent = `${state.mode.toUpperCase()} rush active`;
+
+        if (!state.orders.length) {
+          addItemsUntilTarget(MODES[state.mode].startTarget);
+        }
+
+        scheduleRefill(300);
+        startTicking();
+        render();
+      }
+
+      function pauseRush() {
+        state.running = false;
+        clearTimeout(state.refillTimer);
+        state.refillTimer = null;
+        el.startRushBtn.textContent = "RESUME";
+        el.statusText.textContent = "Rush paused";
+        render();
+      }
+
+      function resetRush() {
+        state.running = false;
+        state.startedAt = null;
+        state.orders = [];
+        state.completed = [];
+        state.usedTables.clear();
+        state.nextOrderId = 1;
+        clearTimeout(state.refillTimer);
+        state.refillTimer = null;
+        clearInterval(state.tickTimer);
+        state.tickTimer = null;
+        el.startRushBtn.textContent = "START";
+        el.statusText.textContent = "Select a mode and start the rush.";
+        render();
+      }
+
+      function scheduleRefill(forcedDelay = null) {
+        clearTimeout(state.refillTimer);
+        if (!state.running) return;
+
+        const config = MODES[state.mode];
+        const delay = forcedDelay ?? randomInt(config.refillDelayMin, config.refillDelayMax);
+
+        state.refillTimer = setTimeout(() => {
+          if (!state.running) return;
+          runRefillLogic();
+        }, delay);
+      }
+
+      function runRefillLogic() {
+        const config = MODES[state.mode];
+        const active = state.orders.length;
+
+        if (config.behavior === "waves") {
+          if (active <= 1) {
+            const waveSize = randomInt(config.waveMin, config.waveMax);
+            const target = Math.min(config.maxTarget, active + waveSize);
+            addItemsUntilTarget(target);
+          }
+          scheduleRefill();
+          return;
+        }
+
+        if (active < config.minTarget) {
+          let target = randomInt(config.minTarget, config.maxTarget);
+
+          if (Math.random() < config.burstChance) {
+            target = Math.min(config.maxTarget + 2, target + randomInt(1, 2));
+          }
+
+          addItemsUntilTarget(target);
+        } else if (
+          active < config.maxTarget &&
+          Math.random() < (state.mode === "slammed" ? 0.75 : 0.35)
+        ) {
+          makeTable(randomInt(1, Math.min(2, state.settings.maxItemsPerTable)));
+        }
+
+        scheduleRefill();
+      }
+
+      function startOrder(id) {
+        const order = state.orders.find(order => order.id === id);
+        if (!order || order.startedAt) return;
+
+        order.startedAt = Date.now();
+
+        // Automatically start the next unstarted item.
+        const currentIndex = state.orders.findIndex(order => order.id === id);
+        const next = state.orders.slice(currentIndex + 1).find(order => !order.startedAt);
+        if (next) next.startedAt = Date.now();
+
+        render();
+      }
+
+      function bumpOrder(id) {
+        const index = state.orders.findIndex(order => order.id === id);
+        if (index === -1) return;
+
+        const [order] = state.orders.splice(index, 1);
+        const completedAt = Date.now();
+
+        state.completed.push({
+          ...order,
+          completedAt,
+          totalTime: completedAt - order.arrivedAt
+        });
+
+        const stillHasTableItems = state.orders.some(item => item.table === order.table);
+        if (!stillHasTableItems) state.usedTables.delete(order.table);
+
+        render();
+
+        if (state.running) {
+          const config = MODES[state.mode];
+
+          if (config.behavior === "maintain") {
+            scheduleRefill(randomInt(config.refillDelayMin, config.refillDelayMax));
+          } else if (state.orders.length <= 1) {
+            scheduleRefill(randomInt(config.refillDelayMin, config.refillDelayMax));
+          }
+        }
+      }
+
+      function render() {
+        const now = Date.now();
+
+        if (!state.orders.length) {
+          el.orders.innerHTML = `
+            <div class="empty">
+              ${state.running
+                ? "Rail is clear. More orders will fire based on the selected mode."
+                : "No active orders. Start the rush when you are ready."}
+            </div>
+          `;
+        } else {
+          el.orders.innerHTML = state.orders.map(order => {
+            const age = now - order.arrivedAt;
+            const cook = order.startedAt ? now - order.startedAt : 0;
+            const old = age >= state.settings.oldOrderSeconds * 1000;
+
+            return `
+              <article class="order ${order.startedAt ? "started" : ""} ${old ? "old" : ""}">
+                <div class="table">
+                  TABLE
+                  <strong>${order.table}</strong>
+                </div>
+
+                <div class="item-name" title="${escapeHtml(order.item)}">
+                  ${escapeHtml(order.item)}
+                </div>
+
+                <div class="timers">
+                  AGE
+                  <strong>${formatTime(age)}</strong>
+                  ${order.startedAt ? `COOK ${formatTime(cook)}` : "NOT STARTED"}
+                </div>
+
+                <div class="row-actions">
+                  <button class="start-btn" data-start="${order.id}" ${order.startedAt ? "disabled" : ""}>
+                    ${order.startedAt ? "STARTED" : "START"}
+                  </button>
+                  <button class="bump-btn" data-bump="${order.id}">BUMP</button>
+                </div>
+              </article>
+            `;
+          }).join("");
+        }
+
+        const average = state.completed.length
+          ? state.completed.reduce((sum, order) => sum + order.totalTime, 0) / state.completed.length
+          : 0;
+
+        el.activeCount.textContent = state.orders.length;
+        el.doneCount.textContent = state.completed.length;
+        el.avgTime.textContent = formatTime(average);
+        el.tableCount.textContent = new Set(state.orders.map(order => order.table)).size;
+
+        if (state.startedAt) {
+          el.rushClock.textContent = formatTime(now - state.startedAt);
+        } else {
+          el.rushClock.textContent = "00:00";
+        }
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#039;");
+      }
+
+      document.querySelectorAll(".mode-btn").forEach(button => {
+        button.addEventListener("click", () => {
+          state.mode = button.dataset.mode;
+
+          document.querySelectorAll(".mode-btn").forEach(btn => {
+            btn.classList.toggle("active", btn === button);
+          });
+
+          el.statusText.textContent = state.running
+            ? `${state.mode.toUpperCase()} rush active`
+            : `${state.mode.toUpperCase()} selected`;
+
+          if (state.running) {
+            const target = MODES[state.mode].startTarget;
+            if (state.orders.length < target) addItemsUntilTarget(target);
+            scheduleRefill(250);
+          }
+
+          render();
+        });
+      });
+
+      el.startRushBtn.addEventListener("click", startRush);
+      el.addTableBtn.addEventListener("click", () => makeTable());
+      el.resetBtn.addEventListener("click", resetRush);
+
+      el.orders.addEventListener("click", event => {
+        const startButton = event.target.closest("[data-start]");
+        const bumpButton = event.target.closest("[data-bump]");
+
+        if (startButton) startOrder(Number(startButton.dataset.start));
+        if (bumpButton) bumpOrder(Number(bumpButton.dataset.bump));
+      });
+
+      el.menuBtn.addEventListener("click", () => el.menuDrawer.classList.add("open"));
+      el.settingsBtn.addEventListener("click", () => el.settingsDrawer.classList.add("open"));
+
+      document.querySelectorAll("[data-close]").forEach(button => {
+        button.addEventListener("click", () => {
+          document.getElementById(button.dataset.close).classList.remove("open");
+        });
+      });
+
+      el.saveMenuBtn.addEventListener("click", () => {
+        const items = el.menuInput.value
+          .split("\n")
+          .map(item => item.trim())
+          .filter(Boolean);
+
+        if (!items.length) {
+          alert("Add at least one menu item.");
+          return;
+        }
+
+        state.menu = items;
+        localStorage.setItem("kdsMenu", JSON.stringify(state.menu));
+        el.menuDrawer.classList.remove("open");
+      });
+
+      el.saveSettingsBtn.addEventListener("click", () => {
+        state.settings.oldOrderSeconds = Math.max(30, Number(el.oldOrderSeconds.value) || 420);
+        state.settings.maxTables = Math.max(5, Math.min(99, Number(el.maxTables.value) || 25));
+        state.settings.maxItemsPerTable = Math.max(1, Math.min(8, Number(el.maxItemsPerTable.value) || 4));
+
+        localStorage.setItem("kdsSettings", JSON.stringify(state.settings));
+        el.settingsDrawer.classList.remove("open");
+        render();
+      });
+
+      function startTicking() {
+        if (state.tickTimer) return;
+        state.tickTimer = setInterval(render, 1000);
+      }
+
+      loadSavedData();
+      startTicking();
+      render();
+    })();
+  </script>
+</body>
+</html>
