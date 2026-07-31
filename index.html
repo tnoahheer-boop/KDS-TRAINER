@@ -95,9 +95,21 @@
 
     .controls {
       display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
+      grid-template-columns: 1fr 1fr;
       gap: 6px;
       margin-top: 8px;
+    }
+
+    .item-controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      padding: 8px 10px 0;
+    }
+
+    .item-controls button {
+      padding: 12px 6px;
+      font-size: 16px;
     }
 
     .primary { background: var(--success); color: #07140b; padding: 10px; }
@@ -150,7 +162,7 @@
 
     .order {
       display: grid;
-      grid-template-columns: 58px minmax(0, 1fr) 72px;
+      grid-template-columns: 48px minmax(0, 1fr) 64px;
       gap: 5px;
       align-items: center;
       min-height: 52px;
@@ -187,7 +199,7 @@
     }
 
     .table {
-      font-size: 11px;
+      font-size: 10px;
       color: var(--muted);
       line-height: 1.1;
     }
@@ -195,20 +207,25 @@
     .table strong {
       display: block;
       color: var(--text);
-      font-size: 16px;
+      font-size: 15px;
     }
 
     .item-name {
-      font-size: 17px;
+      font-size: 13px;
       font-weight: 900;
+      line-height: 1.12;
+      letter-spacing: 0.01em;
+      white-space: normal;
       overflow: hidden;
-      white-space: nowrap;
-      text-overflow: ellipsis;
-      letter-spacing: 0.02em;
+      overflow-wrap: anywhere;
+      word-break: normal;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
     }
 
     .timers {
-      font-size: 10px;
+      font-size: 9px;
       color: var(--muted);
       line-height: 1.25;
       text-align: center;
@@ -216,7 +233,7 @@
 
     .timers strong {
       display: block;
-      font-size: 13px;
+      font-size: 12px;
       color: var(--text);
     }
 
@@ -378,8 +395,7 @@
     </div>
 
     <div class="controls">
-      <button id="startNextBtn" class="primary">START NEXT</button>
-      <button id="bumpSelectedBtn" class="secondary">BUMP</button>
+      <button id="startSimulatorBtn" class="primary">START</button>
       <button id="resetBtn" class="danger">RESET</button>
     </div>
   </header>
@@ -391,8 +407,13 @@
     <div class="metric"><strong id="tableCount">0</strong><span>Tables</span></div>
   </section>
 
+  <section class="item-controls">
+    <button id="startNextBtn" class="primary">START NEXT</button>
+    <button id="bumpSelectedBtn" class="secondary">BUMP</button>
+  </section>
+
   <main id="orders">
-    <div class="empty">No active orders. Press START NEXT when you are ready.</div>
+    <div class="empty">No active orders. Press START to begin the simulator.</div>
   </main>
 
   <nav class="bottom-nav">
@@ -582,6 +603,7 @@
         doneCount: document.getElementById("doneCount"),
         avgTime: document.getElementById("avgTime"),
         tableCount: document.getElementById("tableCount"),
+        startSimulatorBtn: document.getElementById("startSimulatorBtn"),
         startNextBtn: document.getElementById("startNextBtn"),
         bumpSelectedBtn: document.getElementById("bumpSelectedBtn"),
         resetBtn: document.getElementById("resetBtn"),
@@ -685,11 +707,20 @@
         }
       }
 
-      function ensureRushStarted() {
-        if (state.running) return;
+      function toggleSimulator() {
+        if (state.running) {
+          state.running = false;
+          clearTimeout(state.refillTimer);
+          state.refillTimer = null;
+          el.startSimulatorBtn.textContent = "RESUME";
+          el.statusText.textContent = "Simulator paused";
+          render();
+          return;
+        }
 
         state.running = true;
         state.startedAt = state.startedAt || Date.now();
+        el.startSimulatorBtn.textContent = "PAUSE";
         el.statusText.textContent = `${state.mode.toUpperCase()} rush active`;
 
         if (!state.orders.length) {
@@ -698,10 +729,14 @@
 
         scheduleRefill(300);
         startTicking();
+        render();
       }
 
       function startNextOrder() {
-        ensureRushStarted();
+        if (!state.running) {
+          el.statusText.textContent = "Press START to begin the simulator";
+          return;
+        }
 
         const next = state.orders.find(order => !order.startedAt);
         if (!next) {
@@ -710,6 +745,7 @@
         }
 
         next.startedAt = Date.now();
+        el.statusText.textContent = `${state.mode.toUpperCase()} rush active`;
         render();
       }
 
@@ -725,7 +761,8 @@
         state.refillTimer = null;
         clearInterval(state.tickTimer);
         state.tickTimer = null;
-        el.statusText.textContent = "Select a mode and press START NEXT.";
+        el.startSimulatorBtn.textContent = "START";
+        el.statusText.textContent = "Select a mode and press START.";
         render();
       }
 
@@ -825,7 +862,7 @@
             <div class="empty">
               ${state.running
                 ? "Rail is clear. More orders will fire based on the selected mode."
-                : "No active orders. Press START NEXT when you are ready."}
+                : "No active orders. Press START to begin the simulator."}
             </div>
           `;
         } else {
@@ -902,6 +939,7 @@
         });
       });
 
+      el.startSimulatorBtn.addEventListener("click", toggleSimulator);
       el.startNextBtn.addEventListener("click", startNextOrder);
       el.bumpSelectedBtn.addEventListener("click", bumpSelectedOrder);
       el.resetBtn.addEventListener("click", resetRush);
