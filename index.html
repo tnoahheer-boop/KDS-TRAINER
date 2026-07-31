@@ -150,7 +150,7 @@
 
     .order {
       display: grid;
-      grid-template-columns: 58px minmax(0, 1fr) 62px 58px;
+      grid-template-columns: 58px minmax(0, 1fr) 72px;
       gap: 5px;
       align-items: center;
       min-height: 52px;
@@ -165,6 +165,16 @@
     .order.started {
       border-left-color: var(--success);
       background: #172019;
+    }
+
+    .order.selected {
+      outline: 3px solid var(--blue);
+      outline-offset: -2px;
+      background: #1b2733;
+    }
+
+    .order.selected.started {
+      background: #1b2b21;
     }
 
     .order.old {
@@ -368,8 +378,8 @@
     </div>
 
     <div class="controls">
-      <button id="startRushBtn" class="primary">START</button>
-      <button id="addTableBtn" class="secondary">ADD TABLE</button>
+      <button id="startNextBtn" class="primary">START NEXT</button>
+      <button id="bumpSelectedBtn" class="secondary">BUMP</button>
       <button id="resetBtn" class="danger">RESET</button>
     </div>
   </header>
@@ -382,7 +392,7 @@
   </section>
 
   <main id="orders">
-    <div class="empty">No active orders. Start the rush when you are ready.</div>
+    <div class="empty">No active orders. Press START NEXT when you are ready.</div>
   </main>
 
   <nav class="bottom-nav">
@@ -553,6 +563,7 @@
         completed: [],
         usedTables: new Set(),
         nextOrderId: 1,
+        selectedOrderId: null,
         refillTimer: null,
         tickTimer: null,
         settings: {
@@ -571,8 +582,8 @@
         doneCount: document.getElementById("doneCount"),
         avgTime: document.getElementById("avgTime"),
         tableCount: document.getElementById("tableCount"),
-        startRushBtn: document.getElementById("startRushBtn"),
-        addTableBtn: document.getElementById("addTableBtn"),
+        startNextBtn: document.getElementById("startNextBtn"),
+        bumpSelectedBtn: document.getElementById("bumpSelectedBtn"),
         resetBtn: document.getElementById("resetBtn"),
         menuBtn: document.getElementById("menuBtn"),
         settingsBtn: document.getElementById("settingsBtn"),
@@ -674,15 +685,11 @@
         }
       }
 
-      function startRush() {
-        if (state.running) {
-          pauseRush();
-          return;
-        }
+      function ensureRushStarted() {
+        if (state.running) return;
 
         state.running = true;
         state.startedAt = state.startedAt || Date.now();
-        el.startRushBtn.textContent = "PAUSE";
         el.statusText.textContent = `${state.mode.toUpperCase()} rush active`;
 
         if (!state.orders.length) {
@@ -691,15 +698,18 @@
 
         scheduleRefill(300);
         startTicking();
-        render();
       }
 
-      function pauseRush() {
-        state.running = false;
-        clearTimeout(state.refillTimer);
-        state.refillTimer = null;
-        el.startRushBtn.textContent = "RESUME";
-        el.statusText.textContent = "Rush paused";
+      function startNextOrder() {
+        ensureRushStarted();
+
+        const next = state.orders.find(order => !order.startedAt);
+        if (!next) {
+          el.statusText.textContent = "Every active item is already started";
+          return;
+        }
+
+        next.startedAt = Date.now();
         render();
       }
 
@@ -710,12 +720,12 @@
         state.completed = [];
         state.usedTables.clear();
         state.nextOrderId = 1;
+        state.selectedOrderId = null;
         clearTimeout(state.refillTimer);
         state.refillTimer = null;
         clearInterval(state.tickTimer);
         state.tickTimer = null;
-        el.startRushBtn.textContent = "START";
-        el.statusText.textContent = "Select a mode and start the rush.";
+        el.statusText.textContent = "Select a mode and press START NEXT.";
         render();
       }
 
@@ -764,26 +774,17 @@
         scheduleRefill();
       }
 
-      function startOrder(id) {
-        const order = state.orders.find(order => order.id === id);
-        if (!order || order.startedAt) return;
-
-        order.startedAt = Date.now();
-
-        // Automatically start the next unstarted item.
-        const currentIndex = state.orders.findIndex(order => order.id === id);
-        const next = state.orders.slice(currentIndex + 1).find(order => !order.startedAt);
-        if (next) next.startedAt = Date.now();
-
-        render();
-      }
-
       function bumpOrder(id) {
         const index = state.orders.findIndex(order => order.id === id);
         if (index === -1) return;
 
         const [order] = state.orders.splice(index, 1);
         const completedAt = Date.now();
+
+        if (state.selectedOrderId === id) {
+          const nextOrder = state.orders[index] || state.orders[index - 1] || null;
+          state.selectedOrderId = nextOrder ? nextOrder.id : null;
+        }
 
         state.completed.push({
           ...order,
@@ -807,6 +808,15 @@
         }
       }
 
+      function bumpSelectedOrder() {
+        if (state.selectedOrderId === null) {
+          el.statusText.textContent = "Tap an item to select it before bumping";
+          return;
+        }
+
+        bumpOrder(state.selectedOrderId);
+      }
+
       function render() {
         const now = Date.now();
 
@@ -815,7 +825,7 @@
             <div class="empty">
               ${state.running
                 ? "Rail is clear. More orders will fire based on the selected mode."
-                : "No active orders. Start the rush when you are ready."}
+                : "No active orders. Press START NEXT when you are ready."}
             </div>
           `;
         } else {
@@ -825,7 +835,7 @@
             const old = age >= state.settings.oldOrderSeconds * 1000;
 
             return `
-              <article class="order ${order.startedAt ? "started" : ""} ${old ? "old" : ""}">
+              <article class="order ${order.startedAt ? "started" : ""} ${state.selectedOrderId === order.id ? "selected" : ""} ${old ? "old" : ""}" data-order-id="${order.id}">
                 <div class="table">
                   TABLE
                   <strong>${order.table}</strong>
@@ -839,13 +849,6 @@
                   AGE
                   <strong>${formatTime(age)}</strong>
                   ${order.startedAt ? `COOK ${formatTime(cook)}` : "NOT STARTED"}
-                </div>
-
-                <div class="row-actions">
-                  <button class="start-btn" data-start="${order.id}" ${order.startedAt ? "disabled" : ""}>
-                    ${order.startedAt ? "STARTED" : "START"}
-                  </button>
-                  <button class="bump-btn" data-bump="${order.id}">BUMP</button>
                 </div>
               </article>
             `;
@@ -899,16 +902,16 @@
         });
       });
 
-      el.startRushBtn.addEventListener("click", startRush);
-      el.addTableBtn.addEventListener("click", () => makeTable());
+      el.startNextBtn.addEventListener("click", startNextOrder);
+      el.bumpSelectedBtn.addEventListener("click", bumpSelectedOrder);
       el.resetBtn.addEventListener("click", resetRush);
 
       el.orders.addEventListener("click", event => {
-        const startButton = event.target.closest("[data-start]");
-        const bumpButton = event.target.closest("[data-bump]");
+        const row = event.target.closest(".order");
+        if (!row) return;
 
-        if (startButton) startOrder(Number(startButton.dataset.start));
-        if (bumpButton) bumpOrder(Number(bumpButton.dataset.bump));
+        state.selectedOrderId = Number(row.dataset.orderId);
+        render();
       });
 
       el.menuBtn.addEventListener("click", () => el.menuDrawer.classList.add("open"));
